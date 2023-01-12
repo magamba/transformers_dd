@@ -112,6 +112,11 @@ logdir=$save_dir
 logfile="$logdir/train.log"
 tensorboard_dir=$logdir
 
+if [ ! -d $save_dir ]; then
+    echo "Creating dirs $save_dir"
+    mkdir -p "$save_dir"
+fi
+
 # compose arguments
 args="$args $common_args"
 
