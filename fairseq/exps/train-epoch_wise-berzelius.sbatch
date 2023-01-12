@@ -1,7 +1,7 @@
 #! /bin/bash
 
-#SBATCH -A berzelius-2022-53
-#SBATCH --gpus=8
+#SBATCH -A berzelius-2022-194
+#SBATCH --gpus=4
 #SBATCH -t 2-0:00:00
 #SBATCH --mail-type END,FAIL
 #SBATCH --mail-user mgamba@kth.se
@@ -61,7 +61,7 @@ datasets=(
 ###########################
 
 declare -A batch_sizes=(
-    ["iwslt14.tokenized.de-en"]=4096
+    ["iwslt14.tokenized.de-en"]=4096 # 551 updates per epoch
     ["wmt14_en_fr"]=3000
 )
 
@@ -135,6 +135,7 @@ fairseq-train "$data"                       \
     --arch="$model"                         \
     --seed="$seed"                          \
     --log-format "simple"                   \
+    --log-interval 5510                     \
     --log-file $logfile                     \
     --tensorboard-logdir "$tensorboard_dir" \
     $args                                   \
