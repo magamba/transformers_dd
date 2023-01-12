@@ -286,7 +286,7 @@ def set_embedding_dim(model_name, embed_dim):
 
     return wrap_model_fn
 
-for embed_dim in range(14, 501):
+for embed_dim in range(8, 513, 8):
     model_name = f"transformer_vaswani_{embed_dim}"
 
     @register_model_architecture("transformer", model_name)
