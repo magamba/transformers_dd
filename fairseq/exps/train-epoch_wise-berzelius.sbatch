@@ -1,7 +1,9 @@
 #! /bin/bash
 
 #SBATCH -A berzelius-2022-194
-#SBATCH --gpus=4
+#SBATCH --gpus-per-node=4
+#SBATCH --gpus-per-task=4
+#SBATCH --ntasks=1
 #SBATCH -t 2-0:00:00
 #SBATCH --mail-type END,FAIL
 #SBATCH --mail-user mgamba@kth.se
@@ -14,15 +16,15 @@ workers=${WORKERS}
 echo "Job starting at: $(date)"
 
 #     SLURM_ARRAY_TASK_ID to TRAIN_CONFIG lookup table
-#   +--------------+-----------+-----------+
+#   +--------------+----------+----------+
 #   |   DATASET    | IWSLT'14 |  WMT'14  |
 #   | / EMBED DIM  |  De - En |  En - Fr |
 #   +--------------+----------+----------+
-#   |       14     |     0    |     1    |
+#   |     1 (8)    |     0    |     1    |
 #   +--------------+----------+----------+
 #   |      ...     |   2i + j |    ...   |
 #   +--------------+----------+----------+
-#   |      500     |    970   |    971   |
+#   |   64 (512)   |    126   |    127   |
 #   +--------------+----------+----------+
 
 ###########################
@@ -30,7 +32,7 @@ echo "Job starting at: $(date)"
 ###########################
 
 widths=(
-    {14..500}
+    {8..512..8}
 )
 
 ###########################
@@ -61,13 +63,13 @@ datasets=(
 ###########################
 
 declare -A batch_sizes=(
-    ["iwslt14.tokenized.de-en"]=4096 # 551 updates per epoch
-    ["wmt14_en_fr"]=3000
+    [iwslt14.tokenized.de-en]=4096 # 551 updates per epoch
+    [wmt14_en_fr]=3000
 )
 
 declare -A training_args=(
-    ["iwslt14.tokenized.de-en"]="--share-decoder-input-output-embed"
-    ["wmt14_en_fr"]="--share-all-embeddings"
+    [iwslt14.tokenized.de-en]="--share-decoder-input-output-embed"
+    [wmt14_en_fr]="--share-all-embeddings"
 )
 
 args=" --max-tokens=${batch_sizes[$dataset]} \
@@ -105,9 +107,9 @@ fi
 width=${widths[$((${SLURM_ARRAY_TASK_ID} /  ${#datasets[@]}))]}
 dataset=${datasets[$((${SLURM_ARRAY_TASK_ID} % ${#datasets[@]}))]}
 
-data="$DATA_DIR/data-bin/$dataset"
+data="${DATA_DIR}/data-bin/$dataset"
 model="${BASE_MODEL}""_"$width
-save_dir="$SAVE_DIR/${NAME}/$model/$dataset/default/seed-$seed"
+save_dir="${SAVE_DIR}/${NAME}/$model/$dataset/default/seed-$seed"
 logdir=$save_dir
 logfile="$logdir/train.log"
 tensorboard_dir=$logdir
