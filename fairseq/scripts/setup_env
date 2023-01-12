@@ -1,0 +1,45 @@
+#!/bin/bash
+
+function deactivate_conda_if_in_env() {
+  if [ "$CONDA_SHLVL" -eq "1" ]; then
+      conda deactivate
+  fi
+}
+
+# On Berzelius
+CONDA_ENV="transformers"
+
+# shellcheck source=/dev/null
+module load buildtool-easybuild/4.3.3-nscf4a947
+module load Anaconda3/2021.05-nsc1
+source "/software/sse/easybuild/prefix/software/Anaconda3/2021.05-nsc1/etc/profile.d/conda.sh"
+
+echo "Setting env on ${SLURMD_NODENAME}"
+nvidia-smi
+conda activate $CONDA_ENV
+user="$USER"
+if [ -z "$user" ]; then
+    user="$SLURM_JOB_USER"
+fi
+echo "SETUP_ENV - user=$user"
+SAVE_DIR="/proj/memorization/checkpoints"
+DATA_DIR="/proj/memorization/data"
+DEVICE="cuda"
+
+# Set this to zero, disabling random salts for hashes
+# if an arg is given, then use that instead
+PYTHONHASHSEED=0
+for (( i=1; i< "$#"; i++ )); do
+    if [ "${!i}" = "--s_python-hash-seed" ]; then
+        validx=$((i+1))
+        PYTHONHASHSEED=${!validx}
+    fi
+done
+
+echo "SETUP_ENV - PYTHONHASHSEED=$PYTHONHASHSEED"
+
+
+export SAVE_DIR DATA_DIR WORKERS DEVICE PYTHONHASHSEED
+
+echo "SETUP_ENV - Current ENV is:"
+printenv

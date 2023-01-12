@@ -275,3 +275,31 @@ def transformer_wmt_en_de_big_t2t(args):
     args.attention_dropout = getattr(args, "attention_dropout", 0.1)
     args.activation_dropout = getattr(args, "activation_dropout", 0.1)
     transformer_vaswani_wmt_en_de_big(args)
+    
+
+from functools import partial
+
+def set_embedding_dim(model_name, embed_dim):
+    def wrap_model_fn(fn):
+        fn.__name__ = model_name
+        return partial(fn, embed_dim)
+
+    return wrap_model_fn
+
+for embed_dim in range(14, 501):
+    model_name = f"transformer_vaswani_{embed_dim}"
+
+    @register_model_architecture("transformer", model_name)
+    @set_embedding_dim(model_name, embed_dim)
+    def transformer_arch(embed_dim, args):
+        args.encoder_embed_dim = embed_dim
+        args.encoder_ffn_embed_dim = 4 * embed_dim
+        args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 8)
+        args.encoder_layers = getattr(args, "encoder_layers", 6)
+        args.decoder_embed_dim = embed_dim
+        args.decoder_ffn_embed_dim = 4 * embed_dim
+        args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 8)
+        args.decoder_layers = getattr(args, "decoder_layers", 6)
+        base_architecture(args)
+        
+
