@@ -116,7 +116,7 @@ def load_indexed_dataset(
         if "wmt14_en_fr" in path_k and "train" in path_k:
             dataset = SubsampleDataset(
                 dataset,
-                0.005,
+                0.00559245,
                 shuffle=True,
                 seed=1234,
             )
