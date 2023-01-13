@@ -72,12 +72,8 @@ declare -A training_args=(
     [wmt14_en_fr]="--share-all-embeddings"
 )
 
-args=" --max-tokens=${batch_sizes[$dataset]} \
-       ${training_args[$dataset]} \
-     "
 common_args=" --max-update 80000 \
               --optimizer adam \
-              --adam-betas '(0.9, 0.98)' \
               --clip-norm 0.0 \
               --lr 0.0005 \
               --lr-scheduler inverse_sqrt \
@@ -107,6 +103,10 @@ fi
 width=${widths[$((${SLURM_ARRAY_TASK_ID} /  ${#datasets[@]}))]}
 dataset=${datasets[$((${SLURM_ARRAY_TASK_ID} % ${#datasets[@]}))]}
 
+args=" --max-tokens=${batch_sizes[$dataset]} \
+       ${training_args[$dataset]} \
+     "
+
 data="${DATA_DIR}/data-bin/$dataset"
 model="${BASE_MODEL}""_"$width
 save_dir="${SAVE_DIR}/${NAME}/$model/$dataset/default/seed-$seed"
@@ -120,7 +120,7 @@ if [ ! -d $save_dir ]; then
 fi
 
 # compose arguments
-args="$args $common_args"
+args="$common_args $args"
 
 echo "SLURM_ARRAY_TASK_ID: ${SLURM_ARRAY_TASK_ID}"
 echo "model: $model"
@@ -136,11 +136,17 @@ fi
 fairseq-train "$data"                       \
     --arch="$model"                         \
     --seed="$seed"                          \
+    --adam-betas="(0.9, 0.98)"              \
     --log-format "simple"                   \
     --log-interval 5510                     \
     --log-file $logfile                     \
     --tensorboard-logdir "$tensorboard_dir" \
+    --save-dir "$save_dir"                  \
     $args                                   \
     "$@"
 
+status=$?
+
 echo "Job ended at: $(date)"
+
+exit $status
