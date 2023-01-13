@@ -64,12 +64,12 @@ datasets=(
 
 declare -A batch_sizes=(
     [iwslt14.tokenized.de-en]=4096 # 551 updates per epoch
-    [wmt14_en_fr]=3000 # 122193 updates per epoch
+    [wmt14_en_fr]=3000 # 122193 updates per epoch or 704 if subsampled
 )
 
 declare -A training_args=(
-    [iwslt14.tokenized.de-en]="--share-decoder-input-output-embed"
-    [wmt14_en_fr]="--share-decoder-input-output-embed"
+    [iwslt14.tokenized.de-en]="--share-decoder-input-output-embed --log-interval 5510"
+    [wmt14_en_fr]="--share-decoder-input-output-embed --log-interval 70410"
 #    [wmt14_en_fr]="--share-all-embeddings"
 )
 
@@ -138,7 +138,6 @@ fairseq-train "$data"                       \
     --arch="$model"                         \
     --seed="$seed"                          \
     --log-format "simple"                   \
-    --log-interval 5510                     \
     --log-file $logfile                     \
     --adam-betas="(0.9, 0.98)"              \
     --tensorboard-logdir "$tensorboard_dir" \
