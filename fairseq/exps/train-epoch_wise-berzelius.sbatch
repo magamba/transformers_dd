@@ -64,12 +64,13 @@ datasets=(
 
 declare -A batch_sizes=(
     [iwslt14.tokenized.de-en]=4096 # 551 updates per epoch
-    [wmt14_en_fr]=3000
+    [wmt14_en_fr]=3000 # 122193 updates per epoch
 )
 
 declare -A training_args=(
     [iwslt14.tokenized.de-en]="--share-decoder-input-output-embed"
-    [wmt14_en_fr]="--share-all-embeddings"
+    [wmt14_en_fr]="--share-decoder-input-output-embed"
+#    [wmt14_en_fr]="--share-all-embeddings"
 )
 
 args=" --max-tokens=${batch_sizes[$dataset]} \
