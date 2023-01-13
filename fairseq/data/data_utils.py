@@ -89,6 +89,7 @@ def load_indexed_dataset(
     """
     import fairseq.data.indexed_dataset as indexed_dataset
     from fairseq.data.concat_dataset import ConcatDataset
+    from fairseq.data import SubsampleDataset ###
 
     datasets = []
     for k in itertools.count():
@@ -110,6 +111,17 @@ def load_indexed_dataset(
             fix_lua_indexing=True,
             dictionary=dictionary,
         )
+        
+        ## subsample dataset
+        if "wmt14_en_fr" in path_k and "train" in path_k:
+            dataset = SubsampleDataset(
+                dataset,
+                0.005,
+                shuffle=True,
+                seed=1234,
+            )
+        ## end subsample dataset
+
         if dataset is None:
             break
         logger.info("loaded {:,} examples from: {}".format(len(dataset), path_k))
