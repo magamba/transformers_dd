@@ -5,8 +5,10 @@ workers=0
 base_model="transformer_vaswani"
 seed=1
 
-# array size: 0-127:2%16
+# array size:
+#     islwt'14: 0-126:2%16
+#     wmt'14: 1-127:2%16
 
 sbatch --export NAME=$name,BASE_MODEL=$base_model,WORKERS=$workers,SEED=$seed \
-       --array=0 \
+       --array=1-127:2%16 \
        exps/train-epoch_wise-alvis.sbatch
