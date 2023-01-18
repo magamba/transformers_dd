@@ -334,9 +334,9 @@ def main(cfg: DictConfig, **unused_kwargs):
     )
     
     results_and_metadata = {
-        "sample_ids" = [],
-        "targets" = [],
-        "ground_truths" [], 
+        "sample_ids" : [],
+        "targets" : [],
+        "ground_truths" : [], 
         "stats" : results,
         "metadata" : {
             "model" : cfg.arch,
