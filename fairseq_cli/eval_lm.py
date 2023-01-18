@@ -12,6 +12,7 @@ import logging
 import math
 import os
 import sys
+import json
 from argparse import Namespace
 from typing import Iterable, List, Optional
 
@@ -332,20 +333,22 @@ def main(cfg: DictConfig, **unused_kwargs):
             results["loss"], results["perplexity"]
         )
     )
-    
     results_and_metadata = {
         "sample_ids" : [],
         "targets" : [],
-        "ground_truths" : [], 
-        "stats" : results,
+        "ground_truths" : [],
+        "stats" : {
+            "loss": results["loss"].item(),
+            "perplexity": results["perplexity"].item(),
+        },
         "metadata" : {
             "model" : str(cfg.common_eval.path).split("/")[-5],
-            "dataset" : cfg.fairseq.task.data,
+            "dataset" : str(cfg.task.data).split("/")[-1],
             "split" : cfg.dataset.gen_subset,
             "seed" : cfg.common.seed,
             "label-noise" : "no-noise",
             "augmentation" : "no-augmentation",
-            "checkpoint" :  os.path.basename(cfg.common_eval.path).split('_')[1].split('.')[0],
+            "checkpoint" : model_args.optimization.max_update if "last" in str(cfg.common_eval.path) else os.path.basename(str(cfg.common_eval.path)).split("_")[-1].split(".")[0],
             "nsamples" : len(dataset),
             "label-noise-seed" : None,
             "data-split-seed" : None,
@@ -357,8 +360,14 @@ def main(cfg: DictConfig, **unused_kwargs):
         }
     }
     
-    with open(cfg.results_path, 'w') as fp:
+    results_path = os.path.join(
+                       os.path.dirname(cfg.common_eval.path),
+                       "perplexity-{}-checkpoint-{}.json".format(cfg.dataset.gen_subset, results_and_metadata["metadata"]["checkpoint"])
+
+                      )
+    with open(results_path, 'w') as fp:
         json.dump(results_and_metadata, fp, allow_nan=False)
+    logger.info(f"Saving results to {results_path}")
 
     return results
 
