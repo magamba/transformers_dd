@@ -332,6 +332,33 @@ def main(cfg: DictConfig, **unused_kwargs):
             results["loss"], results["perplexity"]
         )
     )
+    
+    results_and_metadata = {
+        "sample_ids" = [],
+        "targets" = [],
+        "ground_truths" [], 
+        "stats" : results,
+        "metadata" : {
+            "model" : cfg.arch,
+            "dataset" : cfg.fairseq.task.data,
+            "split" : cfg.dataset.gen_subset,
+            "seed" : cfg.common.seed,
+            "label-noise" : "no-noise",
+            "augmentation" : "no-augmentation",
+            "checkpoint" :  os.path.basename(cfg.common_eval.path).split('_')[1].split('.')[0],
+            "nsamples" : len(dataset),
+            "label-noise-seed" : None,
+            "data-split-seed" : None,
+            "mc-sample-seed" : None,
+            "metric" : "perplexity",
+            "normalization": "crossentropy",
+            "ndirections" : None,
+            "sampling-strategy" : None,
+        }
+    }
+    
+    with open(cfg.results_path, 'w') as fp:
+        json.dump(results_and_metadata, fp, allow_nan=False)
 
     return results
 
