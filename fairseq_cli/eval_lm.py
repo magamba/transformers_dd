@@ -339,7 +339,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         "ground_truths" : [], 
         "stats" : results,
         "metadata" : {
-            "model" : cfg.arch,
+            "model" : str(cfg.common_eval.path).split("/")[-5],
             "dataset" : cfg.fairseq.task.data,
             "split" : cfg.dataset.gen_subset,
             "seed" : cfg.common.seed,
