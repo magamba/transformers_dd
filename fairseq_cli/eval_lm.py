@@ -25,6 +25,7 @@ from fairseq.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq.logging import progress_bar
 from fairseq.logging.meters import StopwatchMeter
 from fairseq.sequence_scorer import SequenceScorer
+from fairseq.loss_jacobian_norm import SequenceScorer as JacobianScorer
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -46,6 +47,7 @@ def eval_lm(
     softmax_batch: int = 0,
     remove_bos_token: bool = False,
     device: Optional[torch.device] = None,
+    metric=None,
 ):
     """
     Args:
@@ -81,7 +83,7 @@ def eval_lm(
         device = next(models[0].parameters()).device
 
     gen_timer = StopwatchMeter()
-    scorer = SequenceScorer(target_dictionary, softmax_batch)
+    scorer = JacobianScorer(target_dictionary, softmax_batch) if metric == "jacobian" else SequenceScorer(target_dictionary, softmax_batch)
 
     score_sum = 0.0
     count = 0
@@ -326,6 +328,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         target_dictionary=task.target_dictionary,
         softmax_batch=cfg.eval_lm.softmax_batch,
         remove_bos_token=getattr(cfg.task, "add_bos_token", False),
+        metric=cfg.common_eval.metric,
     )
 
     logger.info(
@@ -333,14 +336,24 @@ def main(cfg: DictConfig, **unused_kwargs):
             results["loss"], results["perplexity"]
         )
     )
+    
+    if metric == "perplexity":
+        stats = {
+            "loss": results["loss"].item(),
+            "perplexity": results["perplexity"].item(),
+        }
+    else:
+        stats = [ r.item() for r in results["stats"] ]
+    
+    if cfg.common_eval.checkpoint is not None:
+        chkpt = cfg.common_eval.checkpoint
+    else:
+        chkpt = model_args.optimization.max_update if "last" in str(cfg.common_eval.path) else os.path.basename(str(cfg.common_eval.path)).split("_")[-1].split(".")[0]
     results_and_metadata = {
         "sample_ids" : [],
         "targets" : [],
         "ground_truths" : [],
-        "stats" : {
-            "loss": results["loss"].item(),
-            "perplexity": results["perplexity"].item(),
-        },
+        "stats" : **stats,
         "metadata" : {
             "model" : str(cfg.common_eval.path).split("/")[-5],
             "dataset" : str(cfg.task.data).split("/")[-1],
@@ -348,13 +361,13 @@ def main(cfg: DictConfig, **unused_kwargs):
             "seed" : cfg.common.seed,
             "label-noise" : "no-noise",
             "augmentation" : "no-augmentation",
-            "checkpoint" : model_args.optimization.max_update if "last" in str(cfg.common_eval.path) else os.path.basename(str(cfg.common_eval.path)).split("_")[-1].split(".")[0],
+            "checkpoint" : chkpt,
             "nsamples" : len(dataset),
             "label-noise-seed" : None,
             "data-split-seed" : None,
             "mc-sample-seed" : None,
-            "metric" : "perplexity",
-            "normalization": "crossentropy",
+            "metric" : cfg.common_eval.metric,
+            "normalization": "crossentropy" if cfg.common_eval.metric != "jacobian_operator_norm" else None,
             "ndirections" : None,
             "sampling-strategy" : None,
         }
@@ -362,7 +375,7 @@ def main(cfg: DictConfig, **unused_kwargs):
     
     results_path = os.path.join(
                        os.path.dirname(cfg.common_eval.path),
-                       "perplexity-{}-checkpoint-{}.json".format(cfg.dataset.gen_subset, results_and_metadata["metadata"]["checkpoint"])
+                       "{}-{}-checkpoint-{}.json".format(cfg.common_eval.metric, cfg.dataset.gen_subset, results_and_metadata["metadata"]["checkpoint"])
 
                       )
     with open(results_path, 'w') as fp:
