@@ -1053,6 +1053,12 @@ class CommonEvalConfig(FairseqDataclass):
     results_path: Optional[str] = field(
         default=None, metadata={"help": "path to save eval results (optional)"}
     )
+    metric: Optional[str] = field(
+        default="perplexity", metadata={"help": "metric to compute (default: perplexity)"}
+    )
+    checkpoint: Optional[int] = field(
+        default=None, metadata={"help": "model checkpoint to evaluate"}
+    )
 
 
 @dataclass

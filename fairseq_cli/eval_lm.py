@@ -353,7 +353,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         "sample_ids" : [],
         "targets" : [],
         "ground_truths" : [],
-        "stats" : **stats,
+        "stats" : stats,
         "metadata" : {
             "model" : str(cfg.common_eval.path).split("/")[-5],
             "dataset" : str(cfg.task.data).split("/")[-1],
