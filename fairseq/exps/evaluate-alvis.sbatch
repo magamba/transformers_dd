@@ -75,6 +75,8 @@ declare -A training_args=(
 )
 
 common_args=" --task translation  \
+              --metric="${METRIC}" \
+              --checkpoint="${CHECKPOINT}" \
             "
 
 ###########################
