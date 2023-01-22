@@ -119,12 +119,12 @@ def eval_lm(
         gen_timer.start()
         hypos = scorer.generate(models, sample)
         gen_timer.stop(sample["ntokens"])
-
+        if metric == "jacobian":
+            stats += hypos[-1]
+            hypos = hypos[:-1]
         for i, hypos_i in enumerate(hypos):
             hypo = hypos_i[0]
             sample_id = sample["id"][i]
-            if metric == "jacobian":
-                stats += hypo["jacobian"]
             tokens = hypo["tokens"]
             tgt_len = tokens.numel()
             pos_scores = hypo["positional_scores"].float()

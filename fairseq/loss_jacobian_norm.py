@@ -141,6 +141,8 @@ class SequenceScorer(object):
         bsz = avg_probs.size(0)
         hypos = []
         start_idxs = sample["start_indices"] if "start_indices" in sample else [0] * bsz
+        scores = None
+        
         for i in range(bsz):
             # remove padding from ref
             ref = (
@@ -151,7 +153,10 @@ class SequenceScorer(object):
             tgt_len = ref.numel()
             avg_probs_i = avg_probs[i][start_idxs[i] : start_idxs[i] + tgt_len]
             score_i = avg_probs_i.sum() / tgt_len
-            score_i.backward(gradient=torch.ones_like(score_i), retain_graph=True)
+            if scores = None:
+                scores = score_i
+            scores += score_i
+            
             if avg_attn is not None:
                 avg_attn_i = avg_attn[i]
                 if self.compute_alignment:
@@ -166,8 +171,7 @@ class SequenceScorer(object):
                     alignment = None
             else:
                 avg_attn_i = alignment = None
-                
-            jacobian = torch.matmul(gradients_dict["upstream"].grad, gradients_dict["local"].T)
+            
             hypos.append(
                 [
                     {
@@ -176,12 +180,17 @@ class SequenceScorer(object):
                         "attention": avg_attn_i,
                         "alignment": alignment,
                         "positional_scores": avg_probs_i,
-                        "jacobian": torch.norm(
-                            jacobian.data.view(avg_probs.shape[0], -1),
-                            p=2,
-                            dim=1,
-                        ).tolist()
                     }
                 ]
             )
+        scores /= bsz
+        scores.backward(gradient=torch.ones_like(scores), retain_graph=True)
+        jacobian = torch.matmul(gradients_dict["upstream"].grad, gradients_dict["local"].T)
+        hypos.append(
+            torch.norm(
+                jacobian.data.view(avg_probs.shape[0], -1),
+                p=2,
+                dim=1,
+            ).tolist()
+        )
         return hypos
