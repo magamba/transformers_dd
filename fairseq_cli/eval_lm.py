@@ -278,9 +278,7 @@ def main(cfg: DictConfig, **unused_kwargs):
         if use_cuda and not cfg.distributed_training.pipeline_model_parallel:
             model.cuda()
         model.prepare_for_inference_(cfg)
-        if "jacobian" in metric:
-            logger.info("Setting up hooks")
-            model.encoder.embed_tokens.register_forward_pre_hook(diffentiable_embedding_hook)
+#        if "jacobian" in metric:
 #            logger.info("Loading differentiable embeddings")
 #            embed_tokens = model.encoder.embed_tokens
 #            num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx

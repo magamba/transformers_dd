@@ -3,10 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 import sys
+import os
 
 import torch
 from fairseq import utils
+
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -22,7 +25,7 @@ def get_differentiable_embedding_hook():
     def differentiable_embedding_hook(module, input, output):
         output.requires_grad_(True)
         output.retain_grad()
-        gradients["upstream"] = output.grad
+        gradients["upstream"] = output
         gradients["local"] = module.weight
         return output
         
@@ -86,8 +89,8 @@ class SequenceScorer(object):
         logger.info("Setting up hooks")
         for model in models:
             model.eval()
-            diffentiable_embedding_hook, gradients_dict = get_differentiable_embedding_hook()
-            model.encoder.embed_tokens.register_forward_hook(diffentiable_embedding_hook)
+            differentiable_embedding_hook, gradients_dict = get_differentiable_embedding_hook()
+            model.encoder.embed_tokens.register_forward_hook(differentiable_embedding_hook)
             decoder_out = model(**net_input)
             attn = decoder_out[1] if len(decoder_out) > 1 else None
             if type(attn) is dict:
@@ -164,7 +167,7 @@ class SequenceScorer(object):
             else:
                 avg_attn_i = alignment = None
                 
-            jacobian = torch.matmul(gradients_dict["upstream"], gradients_dict["local"])
+            jacobian = torch.matmul(gradients_dict["upstream"].grad, gradients_dict["local"].T)
             hypos.append(
                 [
                     {
