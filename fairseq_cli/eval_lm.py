@@ -26,6 +26,7 @@ from fairseq.logging import progress_bar
 from fairseq.logging.meters import StopwatchMeter
 from fairseq.sequence_scorer import SequenceScorer
 from fairseq.loss_jacobian_norm import SequenceScorer as JacobianScorer
+from fairseq.modules.differentiable_embedding import DifferentiableEmbedding
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -83,6 +84,7 @@ def eval_lm(
         device = next(models[0].parameters()).device
 
     gen_timer = StopwatchMeter()
+    logger.info(f"Computing metric {metric}")
     scorer = JacobianScorer(target_dictionary, softmax_batch) if metric == "jacobian" else SequenceScorer(target_dictionary, softmax_batch)
 
     score_sum = 0.0
@@ -250,6 +252,7 @@ def main(cfg: DictConfig, **unused_kwargs):
 
     # Initialize the task using the current *cfg*
     task = tasks.setup_task(cfg.task)
+    metric = cfg.common_eval.metric
 
     # Load ensemble
     logger.info("loading model(s) from {}".format(cfg.common_eval.path))
@@ -275,7 +278,20 @@ def main(cfg: DictConfig, **unused_kwargs):
         if use_cuda and not cfg.distributed_training.pipeline_model_parallel:
             model.cuda()
         model.prepare_for_inference_(cfg)
-
+        if "jacobian" in metric:
+            embed_tokens = model.encoder.embed_tokens
+            num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
+            weight = embed_tokens.weight
+            model.encoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
+            model.encoder.embed_tokens.weight = weight
+            model.encoder.embed_tokens.retain_input_grad_()
+            
+            embed_tokens = model.decoder.embed_tokens
+            num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
+            weight = embed_tokens.weight
+            model.dencoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
+            model.dencoder.embed_tokens.weight = weight
+            
     assert len(models) > 0
 
     logger.info(

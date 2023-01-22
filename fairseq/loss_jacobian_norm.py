@@ -156,5 +156,4 @@ class SequenceScorer(object):
                     }
                 ]
             )
-            score_i.grad = None
         return hypos
