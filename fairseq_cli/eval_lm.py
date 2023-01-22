@@ -279,6 +279,7 @@ def main(cfg: DictConfig, **unused_kwargs):
             model.cuda()
         model.prepare_for_inference_(cfg)
         if "jacobian" in metric:
+            logger.info("Loading differentiable embeddings")
             embed_tokens = model.encoder.embed_tokens
             num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
             weight = embed_tokens.weight
