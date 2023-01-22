@@ -153,7 +153,7 @@ class SequenceScorer(object):
             tgt_len = ref.numel()
             avg_probs_i = avg_probs[i][start_idxs[i] : start_idxs[i] + tgt_len]
             score_i = avg_probs_i.sum() / tgt_len
-            if scores = None:
+            if scores is None:
                 scores = score_i
             scores += score_i
             
