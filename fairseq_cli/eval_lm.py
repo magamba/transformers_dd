@@ -123,7 +123,7 @@ def eval_lm(
         for i, hypos_i in enumerate(hypos):
             hypo = hypos_i[0]
             sample_id = sample["id"][i]
-            if metric == "jacobian"
+            if metric == "jacobian":
                 stats.append[hypo["jacobian"]]
             tokens = hypo["tokens"]
             tgt_len = tokens.numel()
