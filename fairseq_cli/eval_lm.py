@@ -83,6 +83,7 @@ def eval_lm(
         device = next(models[0].parameters()).device
 
     gen_timer = StopwatchMeter()
+    logger.info(f"Computing metric {metric}")
     scorer = JacobianScorer(target_dictionary, softmax_batch) if metric == "jacobian" else SequenceScorer(target_dictionary, softmax_batch)
 
     score_sum = 0.0
@@ -250,6 +251,7 @@ def main(cfg: DictConfig, **unused_kwargs):
 
     # Initialize the task using the current *cfg*
     task = tasks.setup_task(cfg.task)
+    metric = cfg.common_eval.metric
 
     # Load ensemble
     logger.info("loading model(s) from {}".format(cfg.common_eval.path))
