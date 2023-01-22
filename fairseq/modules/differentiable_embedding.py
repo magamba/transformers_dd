@@ -17,7 +17,7 @@ class DifferentiableEmbedding(nn.Embedding):
         if self.one_hot is not None:
             self.one_hot.grad = None
     
-    def retain_input_grad_(bool: retain = True):
+    def retain_input_grad_(retain: bool = True):
         self.retain_input_grad = retain
     
     def forward(self, input: torch.Tensor) -> torch.Tensor:
