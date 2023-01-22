@@ -109,6 +109,7 @@ def eval_lm(
 
     word_stats = dict()
 
+    stats = []
     for sample in batch_iterator:
         if "net_input" not in sample:
             continue
@@ -122,7 +123,8 @@ def eval_lm(
         for i, hypos_i in enumerate(hypos):
             hypo = hypos_i[0]
             sample_id = sample["id"][i]
-
+            if metric == "jacobian"
+                stats.append[hypo["jacobian"]]
             tokens = hypo["tokens"]
             tgt_len = tokens.numel()
             pos_scores = hypo["positional_scores"].float()
@@ -200,10 +202,12 @@ def eval_lm(
         for ws in sorted(word_stats.values(), key=lambda x: x.count, reverse=True):
             logger.info(ws)
 
-    return {
-        "loss": avg_nll_loss,
-        "perplexity": 2**avg_nll_loss,
-    }
+    if metric != "jacobian":
+        stats = {
+            "loss": avg_nll_loss,
+            "perplexity": 2**avg_nll_loss,
+        }
+    return stats
 
 
 class WordStat(object):
@@ -393,8 +397,7 @@ def main(cfg: DictConfig, **unused_kwargs):
     results_path = os.path.join(
                        os.path.dirname(cfg.common_eval.path),
                        "{}-{}-checkpoint-{}.json".format(cfg.common_eval.metric, cfg.dataset.gen_subset, results_and_metadata["metadata"]["checkpoint"])
-
-                      )
+                   )
     with open(results_path, 'w') as fp:
         json.dump(results_and_metadata, fp, allow_nan=False)
     logger.info(f"Saving results to {results_path}")

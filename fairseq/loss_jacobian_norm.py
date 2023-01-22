@@ -86,11 +86,10 @@ class SequenceScorer(object):
         # compute scores for each model in the ensemble
         avg_probs = None
         avg_attn = None
-        logger.info("Setting up hooks")
         for model in models:
             model.eval()
             differentiable_embedding_hook, gradients_dict = get_differentiable_embedding_hook()
-            model.encoder.embed_tokens.register_forward_hook(differentiable_embedding_hook)
+            handle = model.encoder.embed_tokens.register_forward_hook(differentiable_embedding_hook)
             decoder_out = model(**net_input)
             attn = decoder_out[1] if len(decoder_out) > 1 else None
             if type(attn) is dict:
@@ -98,6 +97,7 @@ class SequenceScorer(object):
 
             batched = batch_for_softmax(decoder_out, orig_target)
             probs, idx = None, 0
+            handle.remove()
             for bd, tgt, is_single in batched:
                 sample["target"] = tgt
                 curr_prob = model.get_normalized_probs(
