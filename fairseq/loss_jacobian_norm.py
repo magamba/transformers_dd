@@ -58,7 +58,7 @@ class SequenceScorer(object):
     def generate(self, models, sample, **kwargs):
         """Score a batch of translations."""
         net_input = sample["net_input"]
-
+        logger.info("Input: {}".format(net_input["src_tokens"].shape))
         def batch_for_softmax(dec_out, target):
             # assumes decoder_out[0] is the only thing needed (may not be correct for future models!)
             first, rest = dec_out[0], dec_out[1:]
@@ -184,13 +184,21 @@ class SequenceScorer(object):
                 ]
             )
         scores /= bsz
-        scores.backward(gradient=torch.ones_like(scores), retain_graph=True)
+        scores.backward(gradient=torch.ones_like(scores))
         jacobian = torch.matmul(gradients_dict["upstream"].grad, gradients_dict["local"].T)
+        logger.info(f"avg_probs: {avg_probs.shape}")
+        logger.info("jacobian_embedding: {}".format(gradients_dict["upstream"].grad.shape))
+        logger.info(f"scores: {scores.shape}")
+        logger.info(f"jacobian: {jacobian.shape}")
         hypos.append(
             torch.norm(
-                jacobian.data.view(avg_probs.shape[0], -1),
+                jacobian,
                 p=2,
-                dim=1,
-            ).tolist()
+                dim=-1,
+            ).view(-1).cpu().tolist()
         )
+        logger.info("jacobian norm: {}".format(jacobian.view(-1, gradients_dict["local"].shape[0]).shape))
+        gradients_dict["upstream"].grad = None
+        gradients_dict["upstream"] = None
+        gradients_dict["local"] = None
         return hypos

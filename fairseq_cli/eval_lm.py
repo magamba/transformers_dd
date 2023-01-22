@@ -351,12 +351,12 @@ def main(cfg: DictConfig, **unused_kwargs):
         remove_bos_token=getattr(cfg.task, "add_bos_token", False),
         metric=cfg.common_eval.metric,
     )
-
-    logger.info(
-        "Loss (base 2): {:.4f}, Perplexity: {:.2f}".format(
-            results["loss"], results["perplexity"]
+    if "jacobian" not in metric:
+        logger.info(
+            "Loss (base 2): {:.4f}, Perplexity: {:.2f}".format(
+                results["loss"], results["perplexity"]
+            )
         )
-    )
     
     if metric == "perplexity":
         stats = {
@@ -364,7 +364,7 @@ def main(cfg: DictConfig, **unused_kwargs):
             "perplexity": results["perplexity"].item(),
         }
     else:
-        stats = [ r.item() for r in results["stats"] ]
+        stats = results
     
     if cfg.common_eval.checkpoint is not None:
         chkpt = cfg.common_eval.checkpoint
