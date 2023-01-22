@@ -124,7 +124,7 @@ def eval_lm(
             hypo = hypos_i[0]
             sample_id = sample["id"][i]
             if metric == "jacobian":
-                stats.append(hypo["jacobian"])
+                stats += hypo["jacobian"]
             tokens = hypo["tokens"]
             tgt_len = tokens.numel()
             pos_scores = hypo["positional_scores"].float()

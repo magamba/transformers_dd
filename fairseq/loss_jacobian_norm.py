@@ -180,7 +180,7 @@ class SequenceScorer(object):
                             jacobian.data.view(avg_probs.shape[0], -1),
                             p=2,
                             dim=1,
-                        )
+                        ).tolist()
                     }
                 ]
             )
