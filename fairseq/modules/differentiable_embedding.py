@@ -29,4 +29,4 @@ class DifferentiableEmbedding(nn.Embedding):
             self.one_hot.requires_grad_(True)
             self.one_hot.retain_grad()
         
-        return torch.bmm(self.one_hot, self.weight).view(bsz, tsz, dim)
+        return torch.matmul(self.weight.T, self.one_hot.T).T.view(bsz, tsz, dim)
