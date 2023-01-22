@@ -23,7 +23,7 @@ class DifferentiableEmbedding(nn.Embedding):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         bsz, tsz = input.shape
         dim = self.weight.shape[1]
-        self.one_hot = nn.functional.one_hot(input.view(-1), num_classes=self.weight.shape[0]).dtype(self.weight.dtype)
+        self.one_hot = nn.functional.one_hot(input.view(-1), num_classes=self.weight.shape[0]).type(self.weight.dtype)
         
         if self.retain_input_grad:
             self.one_hot.requires_grad_(True)
