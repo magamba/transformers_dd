@@ -8,6 +8,26 @@ import sys
 import torch
 from fairseq import utils
 
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=os.environ.get("LOGLEVEL", "INFO").upper(),
+    stream=sys.stdout,
+)
+logger = logging.getLogger("fairseq.loss_jacobian_norm")
+
+def get_differentiable_embedding_hook():
+    gradients = {}
+
+    def differentiable_embedding_hook(module, input, output):
+        output.requires_grad_(True)
+        output.retain_grad()
+        gradients["upstream"] = output.grad
+        gradients["local"] = module.weight
+        return output
+        
+    return differentiable_embedding_hook, gradients
+
 
 class SequenceScorer(object):
     """Scores the target for a given source sentence."""
@@ -31,7 +51,7 @@ class SequenceScorer(object):
             else {self.eos}
         )
 
-    @torch.no_grad()
+    #@torch.no_grad()
     def generate(self, models, sample, **kwargs):
         """Score a batch of translations."""
         net_input = sample["net_input"]
@@ -63,8 +83,11 @@ class SequenceScorer(object):
         # compute scores for each model in the ensemble
         avg_probs = None
         avg_attn = None
+        logger.info("Setting up hooks")
         for model in models:
             model.eval()
+            diffentiable_embedding_hook, gradients_dict = get_differentiable_embedding_hook()
+            model.encoder.embed_tokens.register_forward_hook(diffentiable_embedding_hook)
             decoder_out = model(**net_input)
             attn = decoder_out[1] if len(decoder_out) > 1 else None
             if type(attn) is dict:
@@ -76,7 +99,7 @@ class SequenceScorer(object):
                 sample["target"] = tgt
                 curr_prob = model.get_normalized_probs(
                     bd, log_probs=len(models) == 1, sample=sample
-                ).data
+                ) #.data
                 if is_single:
                     probs = gather_target_probs(curr_prob, orig_target)
                 else:
@@ -140,6 +163,8 @@ class SequenceScorer(object):
                     alignment = None
             else:
                 avg_attn_i = alignment = None
+                
+            jacobian = torch.matmul(gradients_dict["upstream"], gradients_dict["local"])
             hypos.append(
                 [
                     {
@@ -149,7 +174,7 @@ class SequenceScorer(object):
                         "alignment": alignment,
                         "positional_scores": avg_probs_i,
                         "jacobian": torch.norm(
-                            models[0].encoder.embed_tokens.input_grad().data.view(avg_probs.shape[0], -1),
+                            jacobian.data.view(avg_probs.shape[0], -1),
                             p=2,
                             dim=1,
                         )

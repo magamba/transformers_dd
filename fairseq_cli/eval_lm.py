@@ -26,7 +26,7 @@ from fairseq.logging import progress_bar
 from fairseq.logging.meters import StopwatchMeter
 from fairseq.sequence_scorer import SequenceScorer
 from fairseq.loss_jacobian_norm import SequenceScorer as JacobianScorer
-from fairseq.modules.differentiable_embedding import DifferentiableEmbedding
+#from fairseq.modules.differentiable_embedding import DifferentiableEmbedding
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -279,19 +279,21 @@ def main(cfg: DictConfig, **unused_kwargs):
             model.cuda()
         model.prepare_for_inference_(cfg)
         if "jacobian" in metric:
-            logger.info("Loading differentiable embeddings")
-            embed_tokens = model.encoder.embed_tokens
-            num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
-            weight = embed_tokens.weight
-            model.encoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
-            model.encoder.embed_tokens.weight = weight
-            model.encoder.embed_tokens.retain_input_grad_()
-            
-            embed_tokens = model.decoder.embed_tokens
-            num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
-            weight = embed_tokens.weight
-            model.decoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
-            model.decoder.embed_tokens.weight = weight
+            logger.info("Setting up hooks")
+            model.encoder.embed_tokens.register_forward_pre_hook(diffentiable_embedding_hook)
+#            logger.info("Loading differentiable embeddings")
+#            embed_tokens = model.encoder.embed_tokens
+#            num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
+#            weight = embed_tokens.weight
+#            model.encoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
+#            model.encoder.embed_tokens.weight = weight
+#            model.encoder.embed_tokens.retain_input_grad_()
+#            
+#            embed_tokens = model.decoder.embed_tokens
+#            num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
+#            weight = embed_tokens.weight
+#            model.decoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
+#            model.decoder.embed_tokens.weight = weight
             
     assert len(models) > 0
 
