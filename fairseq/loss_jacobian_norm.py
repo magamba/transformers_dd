@@ -35,7 +35,6 @@ class SequenceScorer(object):
     def generate(self, models, sample, **kwargs):
         """Score a batch of translations."""
         net_input = sample["net_input"]
-        net_input.retain_grad()
 
         def batch_for_softmax(dec_out, target):
             # assumes decoder_out[0] is the only thing needed (may not be correct for future models!)
@@ -150,7 +149,7 @@ class SequenceScorer(object):
                         "alignment": alignment,
                         "positional_scores": avg_probs_i,
                         "jacobian": torch.norm(
-                            net_input.grad.data.view(avg_probs.shape[0], -1),
+                            models[0].encoder.embed_tokens.input_grad().data.view(avg_probs.shape[0], -1),
                             p=2,
                             dim=1,
                         )
