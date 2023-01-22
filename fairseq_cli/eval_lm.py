@@ -289,8 +289,8 @@ def main(cfg: DictConfig, **unused_kwargs):
             embed_tokens = model.decoder.embed_tokens
             num_embeddings, embedding_dim, padding_idx = embed_tokens.num_embeddings, embed_tokens.embedding_dim, embed_tokens.padding_idx
             weight = embed_tokens.weight
-            model.dencoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
-            model.dencoder.embed_tokens.weight = weight
+            model.decoder.embed_tokens = DifferentiableEmbedding(num_embeddings, embedding_dim, padding_idx)
+            model.decoder.embed_tokens.weight = weight
             
     assert len(models) > 0
 
