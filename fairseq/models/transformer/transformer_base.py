@@ -206,12 +206,12 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         
         return sigma
 
-    @classmethod
+    #@classmethod
     def compute_embbedings(self, src_tokens):
         x, embeddings = self.encoder.forward_embedding(src_tokens)
         return x, embeddings
 
-    @classmethod
+    #@classmethod
     def operator_norm(
         self,
         src_tokens,
