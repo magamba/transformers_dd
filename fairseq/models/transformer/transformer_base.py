@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 from torch import Tensor
-from functorch import make_functional_with_buffers, jvp, vjp, jacobian
+from functorch import make_functional_with_buffers, jvp, vjp, jacrev
 
 import logging
 
@@ -255,7 +255,7 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         jvp_embed_fn = lambda v: torch.matmul(decoder_adj, jvp_fn(v))
         vjp_fn = lambda u: vjp(model_forward, x)[1](jvp_embed_fn(u))[0]
         
-        inner_product_fn = lambda delta: jacobian(vjp_fn)(delta)
+        inner_product_fn = lambda delta: jacrev(vjp_fn)(delta)
             
         dummy = torch.ones_like(x)
         inner_product = inner_product_fn(dummy)
