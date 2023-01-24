@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 from torch import Tensor
-from functorch import make_functional_with_buffers, jvp, vjp
+from functorch import make_functional_with_buffers, jvp, vjp, jacobian
 
 import logging
 
