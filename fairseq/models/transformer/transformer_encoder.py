@@ -138,8 +138,8 @@ class TransformerEncoderBase(FairseqEncoder):
         src_lengths: Optional[torch.Tensor] = None,
         return_all_hiddens: bool = False,
         token_embeddings: Optional[torch.Tensor] = None,
-        encoder_embedding: None,
-        x: None,
+        encoder_embedding: Optional[torch.Tensor] = None,
+        x: Optional[torch.Tensor] = None,
     ):
         """
         Args:
@@ -178,8 +178,8 @@ class TransformerEncoderBase(FairseqEncoder):
         src_lengths: Optional[torch.Tensor] = None,
         return_all_hiddens: bool = False,
         token_embeddings: Optional[torch.Tensor] = None,
-        encoder_embedding: None,
-        x: None,
+        encoder_embedding: Optional[torch.Tensor] = None,
+        x: Optional[torch.Tensor] = None,
     ):
         """
         Args:
