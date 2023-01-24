@@ -138,6 +138,8 @@ class TransformerEncoderBase(FairseqEncoder):
         src_lengths: Optional[torch.Tensor] = None,
         return_all_hiddens: bool = False,
         token_embeddings: Optional[torch.Tensor] = None,
+        encoder_embedding: None,
+        x: None,
     ):
         """
         Args:
@@ -163,7 +165,7 @@ class TransformerEncoderBase(FairseqEncoder):
                   Only populated if *return_all_hiddens* is True.
         """
         return self.forward_scriptable(
-            src_tokens, src_lengths, return_all_hiddens, token_embeddings
+            src_tokens, src_lengths, return_all_hiddens, token_embeddings, encoder_embedding, x
         )
 
     # TorchScript doesn't support super() method so that the scriptable Subclass
@@ -176,6 +178,8 @@ class TransformerEncoderBase(FairseqEncoder):
         src_lengths: Optional[torch.Tensor] = None,
         return_all_hiddens: bool = False,
         token_embeddings: Optional[torch.Tensor] = None,
+        encoder_embedding: None,
+        x: None,
     ):
         """
         Args:
@@ -209,7 +213,8 @@ class TransformerEncoderBase(FairseqEncoder):
         if torch.jit.is_scripting():
             has_pads = torch.tensor(1) if has_pads else torch.tensor(0)
 
-        x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
+        if encoder_embedding is None:
+            x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
 
         # account for padding while computing the representation
         x = x * (

@@ -110,6 +110,15 @@ def eval_lm(
     word_stats = dict()
 
     stats = []
+    if metric == "jacobian_operator_norm":
+        model = models[0]
+        for sample in batch_iterator:
+            if "net_input" not in sample:
+                continue
+            net_input = sample["net_input"]
+            stats +=  model.operator_norm(**net_input)
+        return stats
+    
     for sample in batch_iterator:
         if "net_input" not in sample:
             continue

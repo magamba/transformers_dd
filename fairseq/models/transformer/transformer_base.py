@@ -185,9 +185,89 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         """Get normalized probabilities (or log probs) from a net's output."""
         return self.get_normalized_probs_scriptable(net_output, log_probs, sample)
 
+    @classmethod
+    def power_method(self, src_tokens, jvp, vjp, max_steps=60):
+        embedding_grad = self.encoder.embed_tokens.weight
+        v = torch.randn_like(src_tokens).type(embedding_grad.dtype)
+        v /= torch.norm(v, p=2, dim=-1).unsqueeze(-1)
+        v = torch.matmul(weight.T, v.T).T
+        
+        sigma_prev = torch.zeros_like(src_tokens[:,:]).type(embedding_grad.dtype)
+        for _ in range(max_steps):
+            u = jvp(v)
+            u /= torch.norm(u, p=2, dim=-1).unsqueeze(-1)
+            v = vjp(u)
+            v /= torch.norm(v, p=2, dim=-1).unsqueeze(-1)
+            sigma = torch.matmul(u.T, u)
+            
+            if torch.all(torch.abs(sigma - sigma_prev) < 1e-2):
+                break
+        
+        return sigma
+
+    @classmethod
+    def compute_embbedings(self, src_tokens):
+        x, embeddings = self.encoder.forward_embedding(src_tokens)
+        return x, embeddings
+
+    @classmethod
+    def operator_norm(
+        self,
+        src_tokens,
+        src_lengths,
+        prev_output_tokens,
+        return_all_hiddens: bool = True,
+        features_only: bool = False,
+        alignment_layer: Optional[int] = None,
+        alignment_heads: Optional[int] = None,
+        max_steps: int = 60,
+    ):
+        """
+        Run the forward pass for an encoder-decoder model in embedding space.
+
+        Copied from the base class, but without ``**kwargs``,
+        which are not supported by TorchScript.
+        """
+        
+        embedded_model = EmbeddedModel(self.encoder, self.decoder, return_all_hiddens)
+        
+        model_fn, params, buffers = make_functional_with_buffers(embedded_model)
+        embedding, x  = self.encoder.forward_embedding(src_tokens)
+        
+        model_forward = lambda xx: model_fn(params, buffers, src_tokens, src_lengths, prev_output_tokens, embedding, xx)
+        
+        jvp_fn = lambda v: jvp(model_forward, (x,), (v,))[1]
+        vjp_fn = lambda u: vjp(model_forward, x)[1](u)
+        
+        op_norm = self.power_method(src_tokens, jvp_fn, vjp_fn)
+        
+        return op_norm
+
 
 def Embedding(num_embeddings, embedding_dim, padding_idx):
     m = nn.Embedding(num_embeddings, embedding_dim, padding_idx=padding_idx)
     nn.init.normal_(m.weight, mean=0, std=embedding_dim**-0.5)
     nn.init.constant_(m.weight[padding_idx], 0)
     return m
+
+    
+class EmbeddedModel(nn.Module):
+    def __init__(self, encoder, decoder, return_all_hiddens):
+        super(EmbeddedModel, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.return_all_hiddens = return_all_hiddens
+        
+    def forward(self, src_tokens, src_lengths, prev_output_tokens, embedding, x):
+        encoder_out = self.encoder(src_tokens, src_lengths=src_lengths, return_all_hiddens=self.return_all_hiddens, encoder_embedding=embedding, x=x)
+        decoder_out = self.decoder(
+            prev_output_tokens,
+            encoder_out=encoder_out,
+            features_only=False,
+            alignment_layer=None,
+            alignment_heads=None,
+            src_lengths=src_lengths,
+            return_all_hiddens=self.return_all_hiddens,
+        )
+        return decoder_out
+        
