@@ -228,6 +228,17 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
 
         Copied from the base class, but without ``**kwargs``,
         which are not supported by TorchScript.
+        
+        Steps:
+        
+        1. pick random v
+        2. x = Jv
+        3. x = W^T W x
+        4. x = J^T x
+        5. take grad w.r.t v
+        6. x = W^T x W
+        7. norm = sqrt(trace(x))
+        
         """
         
         embedded_model = EmbeddedModel(self.encoder, self.decoder, return_all_hiddens)
@@ -237,10 +248,24 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         
         model_forward = lambda xx: model_fn(params, buffers, src_tokens, src_lengths, prev_output_tokens, embedding, xx)
         
+        decoder_adj = torch.matmul(self.decoder.embed_tokens.weight.T, self.decoder.embed_tokens.weight)
+        encoder_w = self.encoder.embed_tokens.weight
+            
         jvp_fn = lambda v: jvp(model_forward, (x,), (v,))[1]
-        vjp_fn = lambda u: vjp(model_forward, x)[1](u)
+        jvp_embed_fn = lambda v: torch.matmul(decoder_adj, jvp_fn(v))
+        vjp_fn = lambda u: vjp(model_forward, x)[1](jvp_embed_fn(u))[0]
         
-        op_norm = self.power_method(src_tokens, jvp_fn, vjp_fn)
+        inner_product_fn = lambda delta: jacobian(vjp_fn)(delta)
+            
+        dummy = torch.ones_like(x)
+        inner_product = inner_product_fn(dummy)
+        
+        inner_product = torch.matmul(encoder_w.T, inner_product.T).T
+        outer_product = torch.matmul(encoder_w.T, inner_product)
+        
+        op_norm = torch.sqrt(outer_product.diagonal(offset=0, dim1=-2, dim2=-1).sum(dim=-1))
+                
+        #op_norm = self.power_method(src_tokens, jvp_fn, vjp_fn)
         
         return op_norm
 

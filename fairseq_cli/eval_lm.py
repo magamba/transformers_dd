@@ -115,8 +115,11 @@ def eval_lm(
         for sample in batch_iterator:
             if "net_input" not in sample:
                 continue
+                
+            sample = utils.move_to_cuda(sample, device=device)
             net_input = sample["net_input"]
-            stats +=  model.operator_norm(**net_input)
+            op_norm =  model.operator_norm(**net_input)
+            stats += op_norm.tolist()
         return stats
     
     for sample in batch_iterator:
