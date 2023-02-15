@@ -206,13 +206,11 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         
         return sigma
 
-    #@classmethod
     def compute_embbedings(self, src_tokens):
         x, embeddings = self.encoder.forward_embedding(src_tokens)
         return x, embeddings
 
-    #@classmethod
-    def operator_norm(
+    def operator_norm_big_mem(
         self,
         src_tokens,
         src_lengths,
@@ -288,6 +286,81 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
                 
         #op_norm = self.power_method(src_tokens, jvp_fn, vjp_fn)
         
+        return op_norm
+    
+    def operator_norm(
+        self,
+        src_tokens,
+        src_lengths,
+        prev_output_tokens,
+        return_all_hiddens: bool = True,
+        features_only: bool = False,
+        alignment_layer: Optional[int] = None,
+        alignment_heads: Optional[int] = None,
+        max_steps: int = 60,
+    ):
+        """
+        Run the forward pass for an encoder-decoder model in embedding space.
+
+        Copied from the base class, but without ``**kwargs``,
+        which are not supported by TorchScript.
+        
+        Steps:
+        
+        1. pick random v
+        2. x = Jv
+        3. x = W^T W x
+        4. x = J^T x
+        5. take grad w.r.t v
+        6. x = W^T x W
+        7. norm = sqrt(trace(x))
+        
+        """
+        
+        embedded_model = EmbeddedModel(self.encoder, self.decoder, return_all_hiddens)
+        
+        model_fn, params, buffers = make_functional_with_buffers(embedded_model)
+        x, embedding  = self.encoder.forward_embedding(src_tokens)
+
+        decoder_adj = torch.matmul(self.decoder.embed_tokens.weight.T, self.decoder.embed_tokens.weight)
+        def model_forward(x):
+            return  model_fn(params, buffers, src_tokens, src_lengths, prev_output_tokens, embedding, x)[0].reshape(-1, decoder_adj.shape[-1])
+
+        logger.info(f"x: {x.shape}")
+        logger.info(f"model_forward(x): {model_forward(x).shape}")
+
+        logger.info(f"decoder_adj: {decoder_adj.shape}")
+        encoder_w = self.encoder.embed_tokens.weight
+
+        def jvp_fn(v):
+            jv = jvp(model_forward, (x,), (v,))[1]
+            logger.info(f"jv: {jv.shape}")
+            return jv
+
+        def jvp_embed_fn(v):
+            jv = jvp_fn(v)
+            embed_jv = torch.matmul(decoder_adj, jv.T).T
+            logger.info(f"W_adj * jv: {embed_jv.shape}")
+            return embed_jv
+
+        def vjp_fn(v):
+            jv = jvp_embed_fn(v)
+            vj = torch.bmm(jv.unsqueeze(-2), jv.unsqueeze(-1)).squeeze()
+            logger.info(f"vj: {vj.shape}")
+            return vj
+
+        #jvp_fn = lambda v: jvp(model_forward, (x,), (v,))[1][0].reshape(-1,decoder_adj.shape[1])
+        #jvp_embed_fn = lambda v: torch.matmul(decoder_adj.unsqueeze(0), jvp_fn(v))
+        #vjp_fn = lambda u: vjp(model_forward, x)[1](jvp_embed_fn(u))[0]
+        dummy = torch.ones_like(x)
+        
+        inner_product_fn = lambda delta: 0.5 * jacfwd(jacrev(vjp_fn))(delta)
+        inner_product = inner_product_fn(dummy)
+        
+        inner_product = torch.matmul(encoder_w.T, inner_product.T).T
+        outer_product = torch.matmul(encoder_w.T, inner_product)
+        
+        op_norm = torch.sqrt(outer_product.diagonal(offset=0, dim1=-2, dim2=-1).sum(dim=-1))
         return op_norm
 
 
