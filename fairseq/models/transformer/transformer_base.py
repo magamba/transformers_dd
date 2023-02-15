@@ -411,21 +411,29 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
             logger.info(f"jv: {jv.shape}")
             return jv
 
-        def vjp_fn(v):
+        def vjvp_fn(v):
             jv = jvp_fn(v)
-            vj = vjp(model_forward, x)[1](jv)[0]
-            logger.info(f"vj: {vj.shape}")
-            return vj
+            vjv = torch.bmm(jv.unsqueeze(-2), jv.unsqueeze(-1)).squeeze()
+            logger.info(f"vjv: {vjv.shape}")
+            return vjv
+
+        def contract(v):
+            return torch.mean(
+                torch.sqrt(
+                    0.5 * torch.trace(vjvp_fn(v))
+                ), 
+                dim=0,
+            )
 
         #jvp_fn = lambda v: jvp(model_forward, (x,), (v,))[1][0].reshape(-1,decoder_adj.shape[1])
         #jvp_embed_fn = lambda v: torch.matmul(decoder_adj.unsqueeze(0), jvp_fn(v))
         #vjp_fn = lambda u: vjp(model_forward, x)[1](jvp_embed_fn(u))[0]
         dummy = torch.ones_like(x)
         
-        inner_product_fn = lambda delta: jacrev(vjp_fn)(delta)
+        inner_product_fn = lambda delta: jacfwd(jacrev(contract))(delta)
         inner_product = inner_product_fn(dummy)
         
-        op_norm = torch.sqrt(inner_product.diagonal(offset=0, dim1=-2, dim2=-1).sum(dim=-1))
+        op_norm = inner_product
         return op_norm
 
 
