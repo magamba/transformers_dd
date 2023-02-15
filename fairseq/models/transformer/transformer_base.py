@@ -245,19 +245,37 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         
         model_fn, params, buffers = make_functional_with_buffers(embedded_model)
         embedding, x  = self.encoder.forward_embedding(src_tokens)
-        
-        model_forward = lambda xx: model_fn(params, buffers, src_tokens, src_lengths, prev_output_tokens, embedding, xx)
-        
+
         decoder_adj = torch.matmul(self.decoder.embed_tokens.weight.T, self.decoder.embed_tokens.weight)
+        def model_forward(x):
+            return  model_fn(params, buffers, src_tokens, src_lengths, prev_output_tokens, embedding, x)[0].reshape(-1, decoder_adj.shape[1])
+
+        logger.info(f"decoder_adj: {decoder_adj.shape}")
         encoder_w = self.encoder.embed_tokens.weight
-            
-        jvp_fn = lambda v: jvp(model_forward, (x,), (v,))[1]
-        jvp_embed_fn = lambda v: torch.matmul(decoder_adj, jvp_fn(v))
-        vjp_fn = lambda u: vjp(model_forward, x)[1](jvp_embed_fn(u))[0]
+
+        def jvp_fn(v):
+            jv = jvp(model_forward, (x,), (v,))[1]
+            logger.info(f"jv: {jv.shape}")
+            return jv
+
+        def jvp_embed_fn(v):
+            jv = jvp_fn(v)
+            embed_jv = torch.matmul(jv, decoder_adj)
+            logger.info(f"W_adj * jv: {embed_jv.shape}")
+            return embed_jv
+
+        def vjp_fn(v):
+            jv = jvp_embed_fn(v)
+            vj = vjp(model_forward, x)[1](jv)[0]
+            logger.info(f"vj: {vj.shape}")
+            return vj
+
+        #jvp_fn = lambda v: jvp(model_forward, (x,), (v,))[1][0].reshape(-1,decoder_adj.shape[1])
+        #jvp_embed_fn = lambda v: torch.matmul(decoder_adj.unsqueeze(0), jvp_fn(v))
+        #vjp_fn = lambda u: vjp(model_forward, x)[1](jvp_embed_fn(u))[0]
+        dummy = torch.ones_like(x)
         
         inner_product_fn = lambda delta: jacrev(vjp_fn)(delta)
-            
-        dummy = torch.ones_like(x)
         inner_product = inner_product_fn(dummy)
         
         inner_product = torch.matmul(encoder_w.T, inner_product.T).T
@@ -280,8 +298,8 @@ def Embedding(num_embeddings, embedding_dim, padding_idx):
 class EmbeddedModel(nn.Module):
     def __init__(self, encoder, decoder, return_all_hiddens):
         super(EmbeddedModel, self).__init__()
-        self.encoder = encoder
-        self.decoder = decoder
+        self.encoder = encoder.cuda()
+        self.decoder = decoder.cuda()
         self.return_all_hiddens = return_all_hiddens
         
     def forward(self, src_tokens, src_lengths, prev_output_tokens, embedding, x):
@@ -289,7 +307,7 @@ class EmbeddedModel(nn.Module):
         decoder_out = self.decoder(
             prev_output_tokens,
             encoder_out=encoder_out,
-            features_only=False,
+            features_only=True,
             alignment_layer=None,
             alignment_heads=None,
             src_lengths=src_lengths,
