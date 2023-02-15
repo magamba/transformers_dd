@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 from torch import Tensor
-from functorch import make_functional_with_buffers, jvp, vjp, jacrev
+from functorch import make_functional_with_buffers, jvp, vjp, jacrev, jacfwd
 
 import logging
 
@@ -244,11 +244,14 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         embedded_model = EmbeddedModel(self.encoder, self.decoder, return_all_hiddens)
         
         model_fn, params, buffers = make_functional_with_buffers(embedded_model)
-        embedding, x  = self.encoder.forward_embedding(src_tokens)
+        x, embedding  = self.encoder.forward_embedding(src_tokens)
 
         decoder_adj = torch.matmul(self.decoder.embed_tokens.weight.T, self.decoder.embed_tokens.weight)
         def model_forward(x):
-            return  model_fn(params, buffers, src_tokens, src_lengths, prev_output_tokens, embedding, x)[0].reshape(-1, decoder_adj.shape[1])
+            return  model_fn(params, buffers, src_tokens, src_lengths, prev_output_tokens, embedding, x)[0].reshape(-1, decoder_adj.shape[-1])
+
+        logger.info(f"x: {x.shape}")
+        logger.info(f"model_forward(x): {model_forward(x).shape}")
 
         logger.info(f"decoder_adj: {decoder_adj.shape}")
         encoder_w = self.encoder.embed_tokens.weight
@@ -260,7 +263,7 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
 
         def jvp_embed_fn(v):
             jv = jvp_fn(v)
-            embed_jv = torch.matmul(jv, decoder_adj)
+            embed_jv = torch.matmul(decoder_adj, jv.T).T
             logger.info(f"W_adj * jv: {embed_jv.shape}")
             return embed_jv
 
