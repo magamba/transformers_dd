@@ -420,7 +420,7 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         def contract(v):
             return torch.mean(
                 torch.sqrt(
-                    0.5 * torch.trace(vjvp_fn(v))
+                    0.5 * torch.trace(vjvp_fn(v).unsqueeze(-1))
                 ), 
                 dim=0,
             )
